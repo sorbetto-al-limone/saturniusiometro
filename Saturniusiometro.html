@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8" />
+<title>Saturniusiometro - Il cronometro che armonizza il tempo coi tuoi tempi</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    text-align: center;
+    margin-top: 40px;
+    background-color: #f0f0f0;
+    color: #222;
+    transition: background-color 0.3s, color 0.3s;
+  }
+  body.dark {
+    background-color: #121212;
+    color: #ddd;
+  }
+  #timer, #totalElapsed, #block {
+    font-size: 48px;
+    margin: 10px 0;
+  }
+  #block {
+    font-size: 22px;
+    margin-top: 15px;
+  }
+  #delay {
+    color: #d33;
+    font-weight: bold;
+    margin-top: 10px;
+    min-height: 24px;
+  }
+  #settings {
+    margin-bottom: 30px;
+  }
+  button, input, label {
+    font-size: 18px;
+    margin: 5px;
+    padding: 10px 15px;
+  }
+  #darkModeToggle {
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    padding: 8px 12px;
+    cursor: pointer;
+    font-weight: bold;
+    border: none;
+    border-radius: 5px;
+    background-color: #444;
+    color: white;
+  }
+  body.dark #darkModeToggle {
+    background-color: #bbb;
+    color: #222;
+  }
+  #blocksList {
+    margin-top: 10px;
+    margin-bottom: 15px;
+  }
+  .block-row {
+    margin-bottom: 5px;
+  }
+  #remainingBlocks {
+    font-size: 18px;
+    margin-top: 15px;
+    text-align: left;
+    max-width: 300px;
+    margin-left: auto;
+    margin-right: auto;
+    white-space: pre-line;
+  }
+</style>
+</head>
+<body>
+
+<button id="darkModeToggle">🌙 Scuro</button>
+
+<h1>Saturniusiometro</h1>
+
+<div id="settings">
+  <label for="blocksCountInput">Numero di blocchi:</label>
+  <input type="number" id="blocksCountInput" min="1" max="60" value="6" />
+  <button onclick="generateBlockInputs()">Imposta blocchi</button>
+
+  <form id="blocksForm" onsubmit="event.preventDefault(); setupTimer();">
+    <div id="blocksList"></div>
+    <div id="totalTimeDisplay" style="font-weight: bold; margin-bottom: 15px;">Tempo totale: 1 ora 0 minuti</div>
+    <button type="submit">Imposta e avvia</button>
+  </form>
+</div>
+
+<div id="cronometro" style="display:none;">
+  <div id="block">Blocco: 1 / 6</div>
+  <div id="timer">10:00</div>
+  <div id="delay"></div>
+  <div id="totalElapsed">Tempo totale trascorso: 00:00</div>
+  <pre id="remainingBlocks">Tempo rimanente blocchi:</pre>
+  <button onclick="startTimer()" id="startBtn">Avvia</button>
+  <button onclick="pauseTimer()" id="pauseBtn" style="display:none;">Pausa</button>
+  <button onclick="resumeTimer()" id="resumeBtn" style="display:none;">Riprendi</button>
+  <button onclick="finishBlock()" id="finishBtn">Termina blocco</button>
+  <button onclick="resetToSettings()" id="resetBtn">Reimposta</button>
+</div>
+
+<script>
+  // --- Modalità scura toggle ---
+  const darkToggle = document.getElementById('darkModeToggle');
+  darkToggle.onclick = () => {
+    document.body.classList.toggle('dark');
+    darkToggle.textContent = document.body.classList.contains('dark') ? '☀️ Chiaro' : '🌙 Scuro';
+  };
+
+  // --- Variabili globali ---
+  let totalBlocks = 6;
+  let originalBlockDurations = []; // Durata originale blocchi in ms
+  let adjustedBlockDurations = []; // Durata blocchi aggiustata (incluso ritardo)
+  let currentBlock = 0; // indice 0-based
+  let timerInterval = null;
+  let blockStartTime = null;
+  let paused = false;
+  let pauseStartTime = null;
+  let accumulatedPauseTime = 0;
+  let elapsedInBlock = 0; // ms trascorsi nel blocco corrente
+  let totalElapsed = 0; // ms totali trascorsi
+
+  // Elementi DOM
+  const blocksCountInput = document.getElementById('blocksCountInput');
+  const blocksListDiv = document.getElementById('blocksList');
+  const totalTimeDisplay = document.getElementById('totalTimeDisplay');
+  const settingsDiv = document.getElementById('settings');
+  const cronometroDiv = document.getElementById('cronometro');
+  const blockDisplay = document.getElementById('block');
+  const timerDisplay = document.getElementById('timer');
+  const delayDisplay = document.getElementById('delay');
+  const totalElapsedDisplay = document.getElementById('totalElapsed');
+  const remainingBlocksDisplay = document.getElementById('remainingBlocks');
+  const startBtn = document.getElementById('startBtn');
+  const pauseBtn = document.getElementById('pauseBtn');
+  const resumeBtn = document.getElementById('resumeBtn');
+  const finishBtn = document.getElementById('finishBtn');
+  const resetBtn = document.getElementById('resetBtn');
+
+  // --- Funzioni utility ---
+  function msToTime(duration) {
+    let totalSeconds = Math.floor(duration / 1000);
+    let minutes = Math.floor(totalSeconds / 60);
+    let seconds = totalSeconds % 60;
+    minutes = minutes < 10 ? '0' + minutes : minutes;
+    seconds = seconds < 10 ? '0' + seconds : seconds;
+    return minutes + ':' + seconds;
+  }
+
+  function formatHoursMinutes(totalMinutes) {
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    let str = '';
+    if (hours > 0) str += `${hours} ora${hours > 1 ? 'e' : ''} `;
+    str += `${minutes} minuto${minutes !== 1 ? 'i' : ''}`;
+    return str;
+  }
+
+  // --- Genera input durata per ogni blocco ---
+  function generateBlockInputs() {
+    const count = parseInt(blocksCountInput.value);
+    if (isNaN(count) || count < 1 || count > 60) {
+      alert('Inserisci un numero di blocchi tra 1 e 60');
+      return;
+    }
+    blocksListDiv.innerHTML = '';
+    for (let i = 1; i <= count; i++) {
+      const div = document.createElement('div');
+      div.className = 'block-row';
+      div.innerHTML = `
+        <label>Blocco ${i} (minuti): </label>
+        <input type="number" min="1" max="60" value="10" class="block-duration-input" data-index="${i-1}" oninput="updateTotalTime()" />
+      `;
+      blocksListDiv.appendChild(div);
+    }
+    updateTotalTime();
+  }
+
+  // --- Aggiorna tempo totale in impostazioni ---
+  function updateTotalTime() {
+    const inputs = document.querySelectorAll('.block-duration-input');
+    let totalMinutes = 0;
+    inputs.forEach(input => {
+      const val = parseInt(input.value);
+      if (!isNaN(val)) totalMinutes += val;
+    });
+    totalTimeDisplay.textContent = 'Tempo totale: ' + formatHoursMinutes(totalMinutes);
+  }
+
+  // --- Setup timer con i valori inseriti ---
+  function setupTimer() {
+    const inputs = document.querySelectorAll('.block-duration-input');
+    originalBlockDurations = [];
+    adjustedBlockDurations = [];
+    for (let input of inputs) {
+      let val = parseInt(input.value);
+      if (isNaN(val) || val < 1) {
+        alert('Durata blocco non valida');
+        return;
+      }
+      const ms = val * 60 * 1000;
+      originalBlockDurations.push(ms);
+      adjustedBlockDurations.push(ms);
+    }
+    totalBlocks = originalBlockDurations.length;
+    currentBlock = 0;
+    elapsedInBlock = 0;
+    totalElapsed = 0;
+    accumulatedPauseTime = 0;
+    paused = false;
+    blockStartTime = null;
+
+    // Nascondi impostazioni e mostra timer
+    settingsDiv.style.display = 'none';
+    cronometroDiv.style.display = 'block';
+
+    updateDisplay();
+    startBtn.style.display = 'inline-block';
+    pauseBtn.style.display = 'none';
+    resumeBtn.style.display = 'none';
+    finishBtn.style.display = 'inline-block';
+  }
+
+  // --- Aggiorna tutte le visualizzazioni ---
+  function updateDisplay() {
+    blockDisplay.textContent = `Blocco: ${currentBlock + 1} / ${totalBlocks}`;
+
+    // Tempo rimanente nel blocco corrente (può essere negativo se in ritardo)
+    let currentBlockRemaining = adjustedBlockDurations[currentBlock] - elapsedInBlock;
+    timerDisplay.textContent = msToTime(Math.max(0, currentBlockRemaining));
+
+    // Mostra ritardo se presente
+    delayDisplay.textContent = currentBlockRemaining < 0 ? `Ritardo: ${msToTime(-currentBlockRemaining)}` : '';
+
+    // Tempo totale trascorso
+    totalElapsedDisplay.textContent = `Tempo totale trascorso: ${msToTime(totalElapsed)}`;
+
+    // Tempo rimanente blocchi (incluso corrente)
+    let remainingText = '';
+    for (let i = currentBlock; i < totalBlocks; i++) {
+      let rem = adjustedBlockDurations[i];
+      if (i === currentBlock) rem = Math.max(0, rem - elapsedInBlock);
+      remainingText += `Blocco ${i + 1}: ${msToTime(rem)}\n`;
+    }
+    remainingBlocksDisplay.textContent = remainingText.trim();
+  }
+
+  // --- Timer tick ---
+  function tick() {
+    if (paused) return;
+    const now = Date.now();
+    if (!blockStartTime) blockStartTime = now;
+
+    let elapsedSinceStart = now - blockStartTime - accumulatedPauseTime;
+    elapsedInBlock = elapsedSinceStart;
+
+    // Calcola ritardo nel blocco corrente
+    let delay = elapsedInBlock - adjustedBlockDurations[currentBlock];
+
+    if (delay > 0 && currentBlock < totalBlocks - 1) {
+      // Riduci il blocco successivo proporzionalmente al ritardo accumulato in questo blocco
+      // Il blocco successivo parte da originalBlockDurations[currentBlock+1]
+      let newNextBlockDuration = originalBlockDurations[currentBlock + 1] - delay;
+      if (newNextBlockDuration < 0) newNextBlockDuration = 0;
+      adjustedBlockDurations[currentBlock + 1] = newNextBlockDuration;
+    } else if (currentBlock < totalBlocks - 1) {
+      // Se non c'è ritardo, reset durata blocco successivo a originale
+      adjustedBlockDurations[currentBlock + 1] = originalBlockDurations[currentBlock + 1];
+    }
+
+    // Calcolo tempo totale trascorso: somma blocchi già completati + tempo nel blocco corrente
+    let completedBlocksTime = 0;
+    for (let i = 0; i < currentBlock; i++) {
+      completedBlocksTime += adjustedBlockDurations[i];
+    }
+    totalElapsed = completedBlocksTime + elapsedInBlock;
+
+    updateDisplay();
+  }
+
+  // --- Avvia timer ---
+  function startTimer() {
+    if (timerInterval) clearInterval(timerInterval);
+    if (!blockStartTime) blockStartTime = Date.now();
+    accumulatedPauseTime = 0;
+    paused = false;
+    timerInterval = setInterval(tick, 200);
+    startBtn.style.display = 'none';
+    pauseBtn.style.display = 'inline-block';
+    resumeBtn.style.display = 'none';
+  }
+
+  // --- Metti in pausa ---
+  function pauseTimer() {
+    if (paused) return;
+    paused = true;
+    pauseStartTime = Date.now();
+    pauseBtn.style.display = 'none';
+    resumeBtn.style.display = 'inline-block';
+  }
+
+  // --- Riprendi ---
+  function resumeTimer() {
+    if (!paused) return;
+    paused = false;
+    accumulatedPauseTime += Date.now() - pauseStartTime;
+    pauseStartTime = null;
+    pauseBtn.style.display = 'inline-block';
+    resumeBtn.style.display = 'none';
+  }
+
+  // --- Termina blocco corrente ---
+  function finishBlock() {
+    if (timerInterval) clearInterval(timerInterval);
+
+    // Imposta la durata effettiva del blocco corrente come il tempo trascorso (anche se in ritardo)
+    adjustedBlockDurations[currentBlock] = elapsedInBlock;
+
+    currentBlock++;
+    if (currentBlock >= totalBlocks) {
+      // Fine cronometro
+      delayDisplay.textContent = 'Tutti i blocchi terminati.';
+      timerDisplay.textContent = '00:00';
+      blockDisplay.textContent = 'Fine';
+      remainingBlocksDisplay.textContent = '';
+      startBtn.style.display = 'none';
+      pauseBtn.style.display = 'none';
+      resumeBtn.style.display = 'none';
+      finishBtn.style.display = 'none';
+      return;
+    }
+
+    // Reset variabili per il nuovo blocco
+    elapsedInBlock = 0;
+    blockStartTime = null;
+    accumulatedPauseTime = 0;
+    paused = false;
+
+    // Se il blocco successivo è già stato ridotto nel tick, mantieni quella durata
+    // Altrimenti, assicurati che abbia la durata originale
+    if (adjustedBlockDurations[currentBlock] === undefined) {
+      adjustedBlockDurations[currentBlock] = originalBlockDurations[currentBlock];
+    }
+
+    updateDisplay();
+    startBtn.style.display = 'inline-block';
+    pauseBtn.style.display = 'none';
+    resumeBtn.style.display = 'none';
+  }
+
+  // --- Reimposta tutto alle impostazioni ---
+  function resetToSettings() {
+    if (timerInterval) clearInterval(timerInterval);
+    settingsDiv.style.display = 'block';
+    cronometroDiv.style.display = 'none';
+
+    originalBlockDurations = [];
+    adjustedBlockDurations = [];
+    currentBlock = 0;
+    elapsedInBlock = 0;
+    accumulatedPauseTime = 0;
+    paused = false;
+    blockStartTime = null;
+    totalElapsed = 0;
+
+    updateTotalTime();
+  }
+
+  // --- Inizializza input blocchi al caricamento pagina ---
+  window.onload = () => {
+    generateBlockInputs();
+  };
+</script>
+
+</body>
+</html>
