@@ -91,16 +91,20 @@
 <h1>Saturniusiometro</h1>
    <img src="saturniusiometro.png" alt="immagine del cronometro Saturniusiometro" style="width: 25%;"/>
   <style>
-  img {
-    width: 50%;
+  /* Stile base per l'immagine */
+  img[src="saturniusiometro.png"] {
+    width: 25%;  /* base desktop */
     height: auto;
   }
+
+  /* Su mobile aumenta la dimensione */
   @media (max-width: 600px) {
-    img {
-      width: 80%;
+    img[src="saturniusiometro.png"] {
+      width: 60%; /* più grande su schermi piccoli */
     }
   }
 </style>
+
 
 <div id="settings">
   <label for="blocksCountInput">Numero di blocchi:</label>
