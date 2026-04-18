@@ -16,6 +16,7 @@ When you finish one block—meaning the 10 minutes have passed—you click “En
 Note that there is no sound marking the end of the block, so you won’t get distracted*.
 The challenge, if we want to call it that, is to reach at least one full hour of study: your small goal that will make you feel accomplished and help you grow in your learning!
 And if you want to pause and resume your study session later? Just press the “Pause” button!
+
 *I might add a sound alert later, especially to improve accessibility for people who are visually impaired or prefer not to watch the screen too much. But it would be completely optional!
 
 ITALIAN
