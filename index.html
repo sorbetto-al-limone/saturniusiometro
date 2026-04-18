@@ -300,6 +300,8 @@ const alarmToggle = document.getElementById('alarmToggle');
 
   // --- Timer tick ---
   
+let alarmPlayed = false; // Variabile globale per tracciare se la sveglia è già suonata
+
 function tick() {
   if (paused) return;
   const now = Date.now();
@@ -308,29 +310,30 @@ function tick() {
   let elapsedSinceStart = now - blockStartTime - accumulatedPauseTime;
   elapsedInBlock = elapsedSinceStart;
 
-  // Controlla se il blocco è finito (aggiunto da te)
+  // Controlla se siamo in ritardo rispetto alla durata nominale
   if (elapsedInBlock >= adjustedBlockDurations[currentBlock]) {
-    if (alarmToggle.checked) {
+    // Suona la sveglia una sola volta all’inizio del ritardo
+    if (alarmToggle.checked && !alarmPlayed) {
       playBeep();
+      alarmPlayed = true;
     }
-    finishBlock();
-    return; // esci per evitare aggiornamenti doppi dopo fine blocco
+  } else {
+    // Resetta la variabile se torni sotto la durata (es. reset timer)
+    alarmPlayed = false;
   }
 
-  // Calcola ritardo nel blocco corrente
+  // Calcola ritardo (può essere zero o positivo)
   let delay = elapsedInBlock - adjustedBlockDurations[currentBlock];
+  if (delay < 0) delay = 0;
 
-  if (delay > 0 && currentBlock < totalBlocks - 1) {
-    // Riduci il blocco successivo proporzionalmente al ritardo accumulato in questo blocco
+  // Aggiorna la durata del blocco successivo sottraendo il ritardo
+  if (currentBlock < totalBlocks - 1) {
     let newNextBlockDuration = originalBlockDurations[currentBlock + 1] - delay;
     if (newNextBlockDuration < 0) newNextBlockDuration = 0;
     adjustedBlockDurations[currentBlock + 1] = newNextBlockDuration;
-  } else if (currentBlock < totalBlocks - 1) {
-    // Se non c'è ritardo, reset durata blocco successivo a originale
-    adjustedBlockDurations[currentBlock + 1] = originalBlockDurations[currentBlock + 1];
   }
 
-  // Calcolo tempo totale trascorso: somma blocchi già completati + tempo nel blocco corrente
+  // Calcola tempo totale trascorso: somma blocchi completati + tempo nel blocco corrente (incluso ritardo)
   let completedBlocksTime = 0;
   for (let i = 0; i < currentBlock; i++) {
     completedBlocksTime += adjustedBlockDurations[i];
@@ -339,6 +342,7 @@ function tick() {
 
   updateDisplay();
 }
+
 
   // --- Avvia timer ---
   function startTimer() {
