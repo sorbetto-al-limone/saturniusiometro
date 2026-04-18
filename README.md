@@ -19,6 +19,8 @@ And if you want to pause and resume your study session later? Just press the “
 
 *I might add a sound alert later, especially to improve accessibility for people who are visually impaired or prefer not to watch the screen too much. But it would be completely optional!
 
+Link: https://sorbetto-al-limone.github.io/saturniusiometro/
+
 ITALIAN
 
 Che cos'è Saturniusiometro?
@@ -37,3 +39,4 @@ E se vuoi sospendere e riprendere dopo la tua sessione di ripetizione? Basta pre
 
 *È probabile che potrei inserirlo più avanti, soprattutto all'insegna dell'accessibilità di persone che non vedono o che preferiscono non guardare troppo il PC. Sarebbe però completamente opzionale!
 
+Link: https://sorbetto-al-limone.github.io/saturniusiometro/
