@@ -404,7 +404,50 @@
 
 
 
-<!-- Toggle button -->
+<script>
+  // Funzione per generare un beep con l'AudioContext
+  function playBeep() {
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const oscillator = audioCtx.createOscillator();
+    const gainNode = audioCtx.createGain();
+
+    oscillator.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
+
+    oscillator.type = 'sine'; // tipo di onda
+    oscillator.frequency.setValueAtTime(1000, audioCtx.currentTime); // frequenza in Hz
+    gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime); // volume basso
+
+    oscillator.start();
+    oscillator.stop(audioCtx.currentTime + 0.2); // suona per 0.2 secondi
+  }
+
+  // Esempio: suona il beep quando i secondi sono zero in un blocco di 60 secondi
+  function checkAlarm(seconds) {
+    if (seconds === 0) {
+      playBeep();
+      alert("Tempo scaduto! ⏰"); // opzionale, mostra anche un alert
+    }
+  }
+
+  // Simulazione di un timer che conta i secondi da 60 a 0
+  let countdown = 60;
+  const intervalId = setInterval(() => {
+    console.log(countdown);
+    checkAlarm(countdown);
+    countdown--;
+    if (countdown < 0) {
+      clearInterval(intervalId);
+    }
+  }, 1000);
+</script>
+
+
+
+  
+  
+
+<!-- Toggle button per Info -->
 <div id="toggle-button" style="
   position: fixed;
   bottom: 20px;
@@ -481,8 +524,6 @@
          style="max-width: 120px; width: 100%; height: auto;" />
   </a>
 
-  <p>
-    <strong>saturniusiometro/sorbetto-al-limone</strong> is licensed under the 
     <a href="https://www.gnu.org/licenses/gpl-3.0.en.html" target="_blank" rel="noopener noreferrer">
       GNU General Public License v3.0
     </a>.
