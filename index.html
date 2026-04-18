@@ -400,12 +400,9 @@
   window.onload = () => {
     generateBlockInputs();
   };
-</script>
 
 
-
-<script>
-  // Funzione per generare un beep con l'AudioContext
+   // Funzione per generare un beep con l'AudioContext
   function playBeep() {
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     const oscillator = audioCtx.createOscillator();
@@ -440,11 +437,11 @@
       clearInterval(intervalId);
     }
   }, 1000);
+  
 </script>
 
 
 
-  
   
 
 <!-- Toggle button per Info -->
