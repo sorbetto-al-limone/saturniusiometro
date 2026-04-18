@@ -108,6 +108,11 @@
   <label for="blocksCountInput">Numero di blocchi:</label>
   <input type="number" id="blocksCountInput" min="1" max="60" value="6" />
   <button onclick="generateBlockInputs()">Imposta blocchi</button>
+<label>
+  <input type="checkbox" id="alarmToggle" checked />
+  Attiva sveglia sonora al termine di ogni blocco
+</label>
+
 
   <form id="blocksForm" onsubmit="event.preventDefault(); setupTimer();">
     <div id="blocksList"></div>
@@ -150,6 +155,23 @@
   let elapsedInBlock = 0; // ms trascorsi nel blocco corrente
   let totalElapsed = 0; // ms totali trascorsi
 
+  function playBeep() {
+  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const oscillator = audioCtx.createOscillator();
+  const gainNode = audioCtx.createGain();
+
+  oscillator.connect(gainNode);
+  gainNode.connect(audioCtx.destination);
+
+  oscillator.type = 'sine';
+  oscillator.frequency.setValueAtTime(1000, audioCtx.currentTime);
+  gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+
+  oscillator.start();
+  oscillator.stop(audioCtx.currentTime + 0.3);
+}
+
+
   // Elementi DOM
   const blocksCountInput = document.getElementById('blocksCountInput');
   const blocksListDiv = document.getElementById('blocksList');
@@ -166,6 +188,7 @@
   const resumeBtn = document.getElementById('resumeBtn');
   const finishBtn = document.getElementById('finishBtn');
   const resetBtn = document.getElementById('resetBtn');
+const alarmToggle = document.getElementById('alarmToggle');
 
   // --- Funzioni utility ---
   function msToTime(duration) {
@@ -276,37 +299,46 @@
   }
 
   // --- Timer tick ---
-  function tick() {
-    if (paused) return;
-    const now = Date.now();
-    if (!blockStartTime) blockStartTime = now;
+  
+function tick() {
+  if (paused) return;
+  const now = Date.now();
+  if (!blockStartTime) blockStartTime = now;
 
-    let elapsedSinceStart = now - blockStartTime - accumulatedPauseTime;
-    elapsedInBlock = elapsedSinceStart;
+  let elapsedSinceStart = now - blockStartTime - accumulatedPauseTime;
+  elapsedInBlock = elapsedSinceStart;
 
-    // Calcola ritardo nel blocco corrente
-    let delay = elapsedInBlock - adjustedBlockDurations[currentBlock];
-
-    if (delay > 0 && currentBlock < totalBlocks - 1) {
-      // Riduci il blocco successivo proporzionalmente al ritardo accumulato in questo blocco
-      // Il blocco successivo parte da originalBlockDurations[currentBlock+1]
-      let newNextBlockDuration = originalBlockDurations[currentBlock + 1] - delay;
-      if (newNextBlockDuration < 0) newNextBlockDuration = 0;
-      adjustedBlockDurations[currentBlock + 1] = newNextBlockDuration;
-    } else if (currentBlock < totalBlocks - 1) {
-      // Se non c'è ritardo, reset durata blocco successivo a originale
-      adjustedBlockDurations[currentBlock + 1] = originalBlockDurations[currentBlock + 1];
+  // Controlla se il blocco è finito (aggiunto da te)
+  if (elapsedInBlock >= adjustedBlockDurations[currentBlock]) {
+    if (alarmToggle.checked) {
+      playBeep();
     }
-
-    // Calcolo tempo totale trascorso: somma blocchi già completati + tempo nel blocco corrente
-    let completedBlocksTime = 0;
-    for (let i = 0; i < currentBlock; i++) {
-      completedBlocksTime += adjustedBlockDurations[i];
-    }
-    totalElapsed = completedBlocksTime + elapsedInBlock;
-
-    updateDisplay();
+    finishBlock();
+    return; // esci per evitare aggiornamenti doppi dopo fine blocco
   }
+
+  // Calcola ritardo nel blocco corrente
+  let delay = elapsedInBlock - adjustedBlockDurations[currentBlock];
+
+  if (delay > 0 && currentBlock < totalBlocks - 1) {
+    // Riduci il blocco successivo proporzionalmente al ritardo accumulato in questo blocco
+    let newNextBlockDuration = originalBlockDurations[currentBlock + 1] - delay;
+    if (newNextBlockDuration < 0) newNextBlockDuration = 0;
+    adjustedBlockDurations[currentBlock + 1] = newNextBlockDuration;
+  } else if (currentBlock < totalBlocks - 1) {
+    // Se non c'è ritardo, reset durata blocco successivo a originale
+    adjustedBlockDurations[currentBlock + 1] = originalBlockDurations[currentBlock + 1];
+  }
+
+  // Calcolo tempo totale trascorso: somma blocchi già completati + tempo nel blocco corrente
+  let completedBlocksTime = 0;
+  for (let i = 0; i < currentBlock; i++) {
+    completedBlocksTime += adjustedBlockDurations[i];
+  }
+  totalElapsed = completedBlocksTime + elapsedInBlock;
+
+  updateDisplay();
+}
 
   // --- Avvia timer ---
   function startTimer() {
@@ -401,43 +433,6 @@
     generateBlockInputs();
   };
 
-
-   // Funzione per generare un beep con l'AudioContext
-  function playBeep() {
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    const oscillator = audioCtx.createOscillator();
-    const gainNode = audioCtx.createGain();
-
-    oscillator.connect(gainNode);
-    gainNode.connect(audioCtx.destination);
-
-    oscillator.type = 'sine'; // tipo di onda
-    oscillator.frequency.setValueAtTime(1000, audioCtx.currentTime); // frequenza in Hz
-    gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime); // volume basso
-
-    oscillator.start();
-    oscillator.stop(audioCtx.currentTime + 0.2); // suona per 0.2 secondi
-  }
-
-  // Esempio: suona il beep quando i secondi sono zero in un blocco di 60 secondi
-  function checkAlarm(seconds) {
-    if (seconds === 0) {
-      playBeep();
-      alert("Tempo scaduto! ⏰"); // opzionale, mostra anche un alert
-    }
-  }
-
-  // Simulazione di un timer che conta i secondi da 60 a 0
-  let countdown = 60;
-  const intervalId = setInterval(() => {
-    console.log(countdown);
-    checkAlarm(countdown);
-    countdown--;
-    if (countdown < 0) {
-      clearInterval(intervalId);
-    }
-  }, 1000);
-  
 </script>
 
 
